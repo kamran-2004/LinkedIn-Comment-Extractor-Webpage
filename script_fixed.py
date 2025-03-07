@@ -18,6 +18,7 @@ POST_URL = sys.argv[3]
 # Initialize Chrome WebDriver using Selenium 4's built-in manager
 # This approach doesn't require specifying a path to ChromeDriver
 options = webdriver.ChromeOptions()
+options.add_argument('--headless')  # Add this line to run Chrome in headless mode
 driver = webdriver.Chrome(options=options)
 
 try:
