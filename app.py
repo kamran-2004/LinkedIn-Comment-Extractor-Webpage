@@ -19,6 +19,68 @@ logger = logging.getLogger('linkedin-comment-extractor')
 app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Required for flash messages
 
+@app.route('/debug', methods=['GET'])
+def debug():
+    """Endpoint for debugging Chrome/Selenium environment"""
+    try:
+        # Gather system information
+        debug_info = {
+            "platform": platform.system(),
+            "platform_details": platform.platform(),
+            "python_version": sys.version,
+            "environment": {}
+        }
+        
+        # Check for Chrome/Chromium
+        chrome_paths = [
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/google-chrome",
+            "/opt/google/chrome/chrome",
+            "/usr/bin/chromium"
+        ]
+        
+        found_chrome = []
+        for path in chrome_paths:
+            if os.path.exists(path):
+                found_chrome.append(path)
+                
+        debug_info["found_chrome_binaries"] = found_chrome
+        
+        # Try to get Chrome version
+        try:
+            if platform.system() == "Linux":
+                result = subprocess.run(["google-chrome-stable", "--version"], 
+                                       capture_output=True, text=True, timeout=5)
+                debug_info["chrome_version"] = result.stdout.strip()
+            else:
+                debug_info["chrome_version"] = "Not checked on non-Linux systems"
+        except Exception as e:
+            debug_info["chrome_version_error"] = str(e)
+        
+        # Check for ChromeDriver
+        try:
+            if platform.system() == "Linux":
+                result = subprocess.run(["which", "chromedriver"], 
+                                       capture_output=True, text=True, timeout=5)
+                debug_info["chromedriver_path"] = result.stdout.strip()
+                
+                if debug_info["chromedriver_path"]:
+                    result = subprocess.run(["chromedriver", "--version"], 
+                                           capture_output=True, text=True, timeout=5)
+                    debug_info["chromedriver_version"] = result.stdout.strip()
+            else:
+                debug_info["chromedriver_check"] = "Not checked on non-Linux systems"
+        except Exception as e:
+            debug_info["chromedriver_error"] = str(e)
+        
+        # Environment variables
+        for key, value in os.environ.items():
+            debug_info["environment"][key] = value if "SECRET" not in key.upper() and "PASSWORD" not in key.upper() else "[REDACTED]"
+        
+        return "<pre>" + str(debug_info) + "</pre>"
+    except Exception as e:
+        return f"Error generating debug info: {str(e)}"
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -74,7 +136,7 @@ def index():
         except Exception as e:
             error_msg = f"An error occurred: {str(e)}"
             logger.error(error_msg)
-            return render_template('index.html', error=error_msg)
+            return render_template('index.html', error=error_msg, show_debug_link=True)
             
     return render_template('index.html', render_note="Note: For deployment on Render, make sure Chrome is installed and compatible with the ChromeDriver version.")
 

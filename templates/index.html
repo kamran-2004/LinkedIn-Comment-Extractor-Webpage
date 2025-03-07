@@ -71,6 +71,11 @@
         {% if error %}
         <div class="error-message">
             {{ error }}
+            {% if show_debug_link %}
+            <p style="margin-top: 10px;">
+                <a href="/debug" target="_blank" style="color: #e74c3c; text-decoration: underline;">View System Debug Information</a>
+            </p>
+            {% endif %}
         </div>
         {% endif %}
         

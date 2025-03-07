@@ -5,7 +5,6 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 import time
 import csv
 from datetime import datetime
@@ -13,6 +12,8 @@ import re
 import sys
 import os
 import platform
+import subprocess
+import traceback
 
 # Get credentials and post URL from command line arguments
 EMAIL = sys.argv[1]
@@ -33,21 +34,90 @@ options.add_argument('--disable-notifications')  # Disable notifications
 options.add_argument('--disable-popup-blocking')  # Disable popup blocking
 options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')  # Set a common user agent
 
-# Set up Chrome browser with webdriver-manager to handle driver installation
+# Check for Chrome binary location
+chrome_binary_locations = [
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/chromium",
+    # Default Windows location
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+]
+
+chrome_found = False
+for chrome_path in chrome_binary_locations:
+    if os.path.exists(chrome_path):
+        print(f"Chrome binary found at: {chrome_path}")
+        options.binary_location = chrome_path
+        chrome_found = True
+        break
+
+if not chrome_found:
+    print("Warning: No Chrome binary found in standard locations")
+
+# Set up Chrome browser
 try:
     # Check if we're on Windows
     if platform.system() == "Windows":
-        print("Detected Windows system, using alternative WebDriver setup...")
+        print("Detected Windows system, using Windows WebDriver setup...")
         # On Windows, use the Selenium 4 approach without Service
         driver = webdriver.Chrome(options=options)
     else:
-        # On Linux/Mac, use the Service approach with webdriver-manager
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
+        print(f"Detected {platform.system()} environment...")
+        
+        # Try multiple approaches to initialize the driver
+        driver = None
+        exception_messages = []
+        
+        # Method 1: Try with chromedriver in PATH
+        try:
+            print("Trying Method 1: Using chromedriver from PATH...")
+            driver = webdriver.Chrome(options=options)
+            print("Success: Created driver using chromedriver from PATH")
+        except Exception as e:
+            exception_messages.append(f"Method 1 failed: {str(e)}")
+            
+            # Method 2: Try to find chromedriver with subprocess
+            try:
+                print("Trying Method 2: Finding chromedriver with subprocess...")
+                result = subprocess.run(["which", "chromedriver"], capture_output=True, text=True)
+                chromedriver_path = result.stdout.strip()
+                
+                if chromedriver_path:
+                    print(f"Found chromedriver at: {chromedriver_path}")
+                    service = Service(executable_path=chromedriver_path)
+                    driver = webdriver.Chrome(service=service, options=options)
+                    print("Success: Created driver using located chromedriver")
+                else:
+                    exception_messages.append("Method 2 failed: chromedriver not found")
+            except Exception as e:
+                exception_messages.append(f"Method 2 failed: {str(e)}")
+                
+                # Method 3: Try with chromium
+                try:
+                    print("Trying Method 3: Using chromium-browser...")
+                    options = webdriver.ChromeOptions()
+                    options.add_argument('--headless')
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    
+                    if os.path.exists("/usr/bin/chromium"):
+                        options.binary_location = "/usr/bin/chromium"
+                    
+                    driver = webdriver.Chrome(options=options)
+                    print("Success: Created driver using chromium")
+                except Exception as e:
+                    exception_messages.append(f"Method 3 failed: {str(e)}")
+        
+        # If all methods failed, raise an exception with all error details
+        if driver is None:
+            error_msg = "All WebDriver initialization methods failed:\n" + "\n".join(exception_messages)
+            raise Exception(error_msg)
+    
     print("Chrome WebDriver set up successfully!")
 except Exception as driver_error:
     print(f"Error setting up Chrome WebDriver: {driver_error}")
-    import traceback
     traceback.print_exc()
     sys.exit(1)
 
@@ -316,8 +386,6 @@ try:
 except Exception as e:
     print("Error:", e)
     # More detailed error information
-    import traceback
-    print("Detailed error traceback:")
     traceback.print_exc()
 
 finally:
