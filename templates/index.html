@@ -36,28 +36,78 @@
         .form-group button:hover {
             background-color: #005f8e;
         }
+        .error-message {
+            color: #e74c3c;
+            background-color: #fadbd8;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #e74c3c;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0077b5;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="form-container">
         <h1>LinkedIn Comment Extractor</h1>
-        <form action="/" method="POST">
+        
+        {% if error %}
+        <div class="error-message">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        {% if render_note %}
+        <div style="background-color: #e3f2fd; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #2196f3; color: #0d47a1;">
+            {{ render_note }}
+        </div>
+        {% endif %}
+        
+        <form action="/" method="POST" id="extractForm">
             <div class="form-group">
-                <label for="email">Email:</label>
+                <label for="email">LinkedIn Email:</label>
                 <input type="email" id="email" name="email" required>
             </div>
             <div class="form-group">
-                <label for="password">Password:</label>
+                <label for="password">LinkedIn Password:</label>
                 <input type="password" id="password" name="password" required>
             </div>
             <div class="form-group">
-                <label for="post_url">Post URL:</label>
+                <label for="post_url">LinkedIn Post URL:</label>
                 <input type="url" id="post_url" name="post_url" required>
             </div>
             <div class="form-group">
                 <button type="submit">Extract Comments</button>
             </div>
         </form>
+        
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner"></div>
+            <p>Extracting comments... This may take a few minutes.</p>
+        </div>
     </div>
+    
+    <script>
+        document.getElementById('extractForm').addEventListener('submit', function() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+        });
+    </script>
 </body>
 </html>

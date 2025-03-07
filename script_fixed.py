@@ -4,27 +4,64 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 import csv
 from datetime import datetime
 import re
 import sys
+import os
+import platform
 
 # Get credentials and post URL from command line arguments
 EMAIL = sys.argv[1]
 PASSWORD = sys.argv[2]
-POST_URL = sys.argv[3]
+POST_URL = sys.argv[3]  # Get the LinkedIn post URL from command line arguments
 
-# Initialize Chrome WebDriver using Selenium 4's built-in manager
-# This approach doesn't require specifying a path to ChromeDriver
+print("Setting up Chrome WebDriver...")
+# Initialize Chrome WebDriver using webdriver-manager
 options = webdriver.ChromeOptions()
-options.add_argument('--headless')  # Add this line to run Chrome in headless mode
-driver = webdriver.Chrome(options=options)
+options.add_argument('--headless')  # Run Chrome in headless mode
+options.add_argument('--no-sandbox')  # Required for running in container environments
+options.add_argument('--disable-dev-shm-usage')  # Overcome limited resource problems
+options.add_argument('--disable-gpu')  # Applicable to windows os only
+options.add_argument('--window-size=1920,1080')  # Set a specific window size
+options.add_argument('--disable-extensions')  # Disable extensions
+options.add_argument('--disable-infobars')  # Disable infobars
+options.add_argument('--disable-notifications')  # Disable notifications
+options.add_argument('--disable-popup-blocking')  # Disable popup blocking
+options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')  # Set a common user agent
+
+# Set up Chrome browser with webdriver-manager to handle driver installation
+try:
+    # Check if we're on Windows
+    if platform.system() == "Windows":
+        print("Detected Windows system, using alternative WebDriver setup...")
+        # On Windows, use the Selenium 4 approach without Service
+        driver = webdriver.Chrome(options=options)
+    else:
+        # On Linux/Mac, use the Service approach with webdriver-manager
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+    print("Chrome WebDriver set up successfully!")
+except Exception as driver_error:
+    print(f"Error setting up Chrome WebDriver: {driver_error}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+
+# Debug information about the environment
+try:
+    print(f"Chrome version: {driver.capabilities['browserVersion']}")
+    print(f"ChromeDriver version: {driver.capabilities['chrome']['chromedriverVersion'].split(' ')[0]}")
+except Exception as cap_error:
+    print(f"Could not get browser capabilities: {cap_error}")
 
 try:
     # Open LinkedIn Login Page
     driver.get("https://www.linkedin.com/login")
-    time.sleep(2)  # Wait for the page to load
+    time.sleep(5)  # Increased wait time for the page to load
 
     # Enter email
     email_input = driver.find_element(By.ID, "username")
@@ -37,25 +74,25 @@ try:
     # Submit the form
     password_input.send_keys(Keys.RETURN)
 
-    print("Login successful!")
+    print("Login submitted!")
 
-    # Wait for login to complete
-    time.sleep(5)
+    # Wait for login to complete - increased wait time
+    time.sleep(10)
     
     # Use the provided post URL
     driver.get(POST_URL)
     
-    # Wait for the post to load
-    time.sleep(3)
-    print("Post loaded successfully!")
+    # Wait for the post to load - increased wait time
+    time.sleep(8)
+    print("Post URL loaded!")
     
     # Scroll down to find the comments section
     print("Scrolling down to find comments section...")
     # Execute JavaScript to scroll down to find comments
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
-    time.sleep(2)
+    time.sleep(3)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    time.sleep(2)
+    time.sleep(3)
     
     # Try to change the comment sort order to "Most recent"
     try:
@@ -143,8 +180,8 @@ try:
                         driver.execute_script("arguments[0].click();", load_more_button)
                         load_more_count += 1
                         
-                        # Wait for new comments to load
-                        time.sleep(3)
+                        # Wait for new comments to load - increased wait time
+                        time.sleep(5)
                     else:
                         print("No more 'Load more comments' buttons found.")
                         break
@@ -278,8 +315,10 @@ try:
 
 except Exception as e:
     print("Error:", e)
-
-
+    # More detailed error information
+    import traceback
+    print("Detailed error traceback:")
+    traceback.print_exc()
 
 finally:
     # Close browser
